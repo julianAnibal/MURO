@@ -1,5 +1,5 @@
 {
-  "name": "app",
+  "name": "multivideo",
   "version": "1.0.0",
   "description": "A desktop application for simultaneous playback of multiple videos across multiple displays.",
   "main": "src/main.js",

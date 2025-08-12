@@ -17,12 +17,17 @@
           <button id="detect-displays" class="button button-secondary">Refresh Displays</button>
         </div>
       </header>
-      <main class="main-content">
-        <h2>Detected Displays</h2>
-        <ul id="display-list" class="display-list">
-          <!-- Display items will be populated here -->
-        </ul>
-      </main>
+      <div class="main-content">
+        <aside class="sidebar">
+          <h2>Detected Displays</h2>
+          <ul id="display-list" class="display-list">
+            <!-- Display items will be populated here -->
+          </ul>
+        </aside>
+        <main id="canvas-container" class="canvas-container">
+            <!-- Screen representations will be added here -->
+        </main>
+      </div>
     </div>
     <script src="./renderer.js"></script>
   </body>

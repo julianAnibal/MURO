@@ -80,9 +80,30 @@ h1, h2 {
 }
 
 .main-content {
-  padding: var(--space-4);
+  display: flex;
   flex-grow: 1;
+  overflow: hidden; /* Prevent overflow at the main level */
+}
+
+.sidebar {
+  width: 360px;
+  flex-shrink: 0;
+  padding: var(--space-4);
+  background-color: var(--color-surface-alt);
   overflow-y: auto;
+  border-right: 1px solid var(--color-border);
+}
+
+.canvas-container {
+  flex-grow: 1;
+  padding: var(--space-4);
+  overflow: auto; /* Allow scrolling if canvas is large */
+  position: relative; /* Needed for positioning screen divs */
+  background-color: var(--color-bg);
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
 .display-list {
@@ -166,4 +187,30 @@ h1, h2 {
 .button:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
+}
+
+.canvas-screen {
+  position: absolute;
+  background-color: rgba(77, 163, 255, 0.2); /* var(--color-brand) with alpha */
+  border: 1px solid var(--color-brand);
+  color: var(--color-text-primary);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 24px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  box-sizing: border-box; /* Important for correct sizing with borders */
+  transition: all 120ms; /* For future interactions */
+}
+
+.canvas-screen span {
+  text-shadow: 0 0 5px var(--color-bg);
+}
+
+.canvas-screen.is-dragging {
+  cursor: grabbing;
+  z-index: 1000;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border-color: var(--color-focus);
 }
