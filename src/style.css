@@ -79,6 +79,12 @@ h1, h2 {
   margin: 0;
 }
 
+.logo {
+  height: 32px; /* Adjust as needed */
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
 .main-content {
   display: flex;
   flex-grow: 1;
@@ -101,9 +107,10 @@ h1, h2 {
   position: relative; /* Needed for positioning screen divs */
   background-color: var(--color-bg);
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-  background-size: 20px 20px;
+    linear-gradient(to right, var(--color-border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-border) 1px, transparent 1px);
+  background-size: 50px 50px; /* Larger grid for snapping */
+  border: 1px solid var(--color-border); /* Add a border */
 }
 
 .display-list {

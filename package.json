@@ -1,7 +1,7 @@
 {
-  "name": "multivideo",
+  "name": "muro",
   "version": "1.0.0",
-  "description": "A desktop application for simultaneous playback of multiple videos across multiple displays.",
+  "description": "Una aplicación de escritorio para la reproducción simultánea de múltiples videos en múltiples pantallas, creando un video wall o \"MURO\" de videos.",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -20,6 +20,6 @@
   },
   "homepage": "https://github.com/julianAnibal/MURO#readme",
   "devDependencies": {
-    "electron": "^37.2.6"
+    "electron": "^28.2.3"
   }
 }
