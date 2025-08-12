@@ -58,7 +58,42 @@ displayList.addEventListener('click', async (event) => {
   }
 });
 
+const loadButton = document.getElementById('load-profile');
+const saveButton = document.getElementById('save-profile');
 const startButton = document.getElementById('start-playback');
+
+function updateUIFromConfig(loadedConfig) {
+  videoConfig = loadedConfig;
+  console.log('Applying loaded config:', videoConfig);
+
+  const displayCards = document.querySelectorAll('.display-card');
+  displayCards.forEach(card => {
+    const displayId = card.querySelector('[data-id]').dataset.id;
+    const pathElement = card.querySelector('.video-path');
+
+    if (videoConfig[displayId] && videoConfig[displayId].videoPath) {
+      pathElement.textContent = videoConfig[displayId].videoPath;
+    } else {
+      pathElement.textContent = 'No video selected';
+    }
+  });
+}
+
+loadButton.addEventListener('click', async () => {
+  const result = await window.electronAPI.loadProfile();
+  console.log('Profile load result:', result);
+  if (result.success) {
+    updateUIFromConfig(result.data);
+  }
+  // We could show a toast notification for success or failure.
+});
+
+saveButton.addEventListener('click', async () => {
+  console.log('Saving profile with config:', videoConfig);
+  const result = await window.electronAPI.saveProfile(videoConfig);
+  console.log('Profile save result:', result);
+  // We could show a toast notification to the user here.
+});
 
 startButton.addEventListener('click', () => {
   console.log('Starting playback with config:', videoConfig);

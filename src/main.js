@@ -1,6 +1,7 @@
 // Main process
 const { app, BrowserWindow, screen, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 let playerWindows = [];
 
@@ -103,6 +104,54 @@ async function handleStartPlayback(event, config) {
   }
 }
 
+async function handleProfileSave(event, config) {
+  const { canceled, filePath } = await dialog.showSaveDialog({
+    title: 'Save Profile',
+    defaultPath: 'my-profile.json',
+    filters: [
+      { name: 'JSON Files', extensions: ['json'] }
+    ]
+  });
+
+  if (canceled || !filePath) {
+    return { success: false, message: 'Save was canceled.' };
+  }
+
+  try {
+    const jsonContent = JSON.stringify(config, null, 2); // Pretty-print JSON
+    fs.writeFileSync(filePath, jsonContent, 'utf-8');
+    return { success: true, message: 'Profile saved successfully.' };
+  } catch (error) {
+    console.error('Failed to save profile:', error);
+    return { success: false, message: `Failed to save profile: ${error.message}` };
+  }
+}
+
+async function handleProfileLoad() {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    title: 'Load Profile',
+    properties: ['openFile'],
+    filters: [
+      { name: 'JSON Files', extensions: ['json'] }
+    ]
+  });
+
+  if (canceled || filePaths.length === 0) {
+    return { success: false, message: 'Load was canceled.' };
+  }
+
+  const filePath = filePaths[0];
+
+  try {
+    const jsonContent = fs.readFileSync(filePath, 'utf-8');
+    const config = JSON.parse(jsonContent);
+    return { success: true, data: config };
+  } catch (error) {
+    console.error('Failed to load profile:', error);
+    return { success: false, message: `Failed to load profile: ${error.message}` };
+  }
+}
+
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
     width: 800,
@@ -120,6 +169,8 @@ app.whenReady().then(() => {
   ipcMain.handle('display:identify', handleIdentifyDisplay);
   ipcMain.handle('dialog:openFile', handleFileOpen);
   ipcMain.handle('playback:start', handleStartPlayback);
+  ipcMain.handle('profile:save', handleProfileSave);
+  ipcMain.handle('profile:load', handleProfileLoad);
   createWindow();
 
   app.on('activate', () => {
