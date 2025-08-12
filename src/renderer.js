@@ -5,8 +5,6 @@ const canvasContainer = document.getElementById('canvas-container');
 
 let videoConfig = {};
 
-const gridSize = 50;
-
 function renderScreensOnCanvas(displays) {
   canvasContainer.innerHTML = ''; // Clear canvas
   if (displays.length === 0) return;
@@ -179,13 +177,8 @@ function dragElement(e) {
     e.preventDefault();
     const dx = e.clientX - initialX;
     const dy = e.clientY - initialY;
-
-    // Calculate snapped position
-    const snappedLeft = Math.round((xOffset + dx) / gridSize) * gridSize;
-    const snappedTop = Math.round((yOffset + dy) / gridSize) * gridSize;
-
-    activeDrag.style.left = `${snappedLeft}px`;
-    activeDrag.style.top = `${snappedTop}px`;
+    activeDrag.style.left = `${xOffset + dx}px`;
+    activeDrag.style.top = `${yOffset + dy}px`;
   }
 }
 
@@ -193,14 +186,8 @@ function dropElement() {
   if (activeDrag) {
     activeDrag.classList.remove('is-dragging');
     const displayId = activeDrag.dataset.id;
-
-    // Snap the final position to the grid
-    const newX = Math.round(activeDrag.offsetLeft / gridSize) * gridSize;
-    const newY = Math.round(activeDrag.offsetTop / gridSize) * gridSize;
-
-    // Update the element's style to the snapped position
-    activeDrag.style.left = `${newX}px`;
-    activeDrag.style.top = `${newY}px`;
+    const newX = activeDrag.offsetLeft;
+    const newY = activeDrag.offsetTop;
 
     if (videoConfig[displayId]) {
       videoConfig[displayId].x = newX;
