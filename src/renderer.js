@@ -4,62 +4,55 @@ const displayList = document.getElementById('display-list');
 const canvasContainer = document.getElementById('canvas-container');
 
 let videoConfig = {};
+let currentDisplays = [];
+const CM_TO_PX_SCALE = 5; // 1cm = 5px on the canvas
 
-function renderScreensOnCanvas(displays) {
+function renderScreensOnCanvas() {
   canvasContainer.innerHTML = ''; // Clear canvas
-  if (displays.length === 0) return;
+  if (currentDisplays.length === 0) return;
 
-  // 1. Find the total bounding box of all displays
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  displays.forEach(d => {
-    minX = Math.min(minX, d.bounds.x);
-    minY = Math.min(minY, d.bounds.y);
-    maxX = Math.max(maxX, d.bounds.x + d.bounds.width);
-    maxY = Math.max(maxY, d.bounds.y + d.bounds.height);
-  });
-  const totalWidth = maxX - minX;
-  const totalHeight = maxY - minY;
-
-  // 2. Determine the scaling factor to fit into the canvas
-  const canvasBounds = canvasContainer.getBoundingClientRect();
-  const padding = 32; // 16px on each side
-  const availableWidth = canvasBounds.width - padding;
-  const availableHeight = canvasBounds.height - padding;
-  const scale = Math.min(availableWidth / totalWidth, availableHeight / totalHeight);
-
-  // 3. Render each display and initialize its config
-  displays.forEach((display, index) => {
+  currentDisplays.forEach((display, index) => {
     const screenDiv = document.createElement('div');
     screenDiv.className = 'canvas-screen';
     screenDiv.dataset.id = display.id;
 
-    const newLeft = (display.bounds.x - minX) * scale + (padding / 2);
-    const newTop = (display.bounds.y - minY) * scale + (padding / 2);
+    const config = videoConfig[display.id] || {};
+    const hasPhysicalSize = config.physicalWidth > 0 && config.physicalHeight > 0;
 
-    screenDiv.style.width = `${display.bounds.width * scale}px`;
-    screenDiv.style.height = `${display.bounds.height * scale}px`;
-    screenDiv.style.left = `${newLeft}px`;
-    screenDiv.style.top = `${newTop}px`;
+    // Set size based on physical dimensions, or a default if not available
+    if (hasPhysicalSize) {
+      screenDiv.style.width = `${config.physicalWidth * CM_TO_PX_SCALE}px`;
+      screenDiv.style.height = `${config.physicalHeight * CM_TO_PX_SCALE}px`;
+    } else {
+      screenDiv.style.width = '150px';
+      screenDiv.style.height = '150px';
+      screenDiv.classList.add('is-placeholder');
+    }
+
+    // Set position from config
+    screenDiv.style.left = `${config.x || 0}px`;
+    screenDiv.style.top = `${config.y || 0}px`;
+
     screenDiv.innerHTML = `<span>${index + 1}</span>`;
-
     canvasContainer.appendChild(screenDiv);
-
-    // Initialize config for this display, preserving videoPath if it exists
-    videoConfig[display.id] = {
-      ...videoConfig[display.id],
-      x: newLeft,
-      y: newTop,
-    };
   });
 }
 
 async function populateDisplayList() {
   videoConfig = {}; // Reset config on refresh
   console.log('Configuration reset.');
-  const displays = await window.electronAPI.getDisplays();
+
+  currentDisplays = await window.electronAPI.getDisplays();
 
   displayList.innerHTML = '';
-  displays.forEach((display, index) => {
+  currentDisplays.forEach((display, index) => {
+    // Initialize config for this display
+    videoConfig[display.id] = {
+      x: 0, y: 0,
+      physicalWidth: null, physicalHeight: null,
+      videoPath: null,
+    };
+
     const listItem = document.createElement('li');
     listItem.classList.add('display-card');
     listItem.innerHTML = `
@@ -67,6 +60,16 @@ async function populateDisplayList() {
         <strong>Display ${index + 1} (ID: ${display.id})</strong>
         <div class="video-path-container">
           <span class="video-path">No video selected</span>
+        </div>
+        <div class="physical-size-inputs">
+          <div class="input-group">
+            <label for="width-${display.id}">W (cm)</label>
+            <input type="number" id="width-${display.id}" class="input input-size" data-id="${display.id}" data-dimension="width" placeholder="--">
+          </div>
+          <div class="input-group">
+            <label for="height-${display.id}">H (cm)</label>
+            <input type="number" id="height-${display.id}" class="input input-size" data-id="${display.id}" data-dimension="height" placeholder="--">
+          </div>
         </div>
         <span class="display-details">${display.size.width}x${display.size.height} @ ${display.scaleFactor * 100}%</span>
       </div>
@@ -78,15 +81,15 @@ async function populateDisplayList() {
     displayList.appendChild(listItem);
   });
 
-  renderScreensOnCanvas(displays);
+  renderScreensOnCanvas();
 }
 
 detectButton.addEventListener('click', populateDisplayList);
 
 displayList.addEventListener('click', async (event) => {
-  const target = event.target;
-  if (target.tagName !== 'BUTTON' || !target.dataset.action) return;
+  if (!event.target.matches('button[data-action]')) return;
 
+  const target = event.target;
   const action = target.dataset.action;
   const displayId = target.dataset.id;
 
@@ -97,13 +100,32 @@ displayList.addEventListener('click', async (event) => {
   if (action === 'select-video') {
     const filePath = await window.electronAPI.openFile();
     if (filePath) {
-      const card = target.closest('.display-card');
-      card.querySelector('.video-path').textContent = filePath;
+      target.closest('.display-card').querySelector('.video-path').textContent = filePath;
       if (!videoConfig[displayId]) videoConfig[displayId] = {};
       videoConfig[displayId].videoPath = filePath;
       console.log('Updated config:', videoConfig);
     }
   }
+});
+
+displayList.addEventListener('input', (event) => {
+  if (!event.target.matches('input.input-size')) return;
+
+  const target = event.target;
+  const displayId = target.dataset.id;
+  const dimension = target.dataset.dimension;
+  const value = target.value === '' ? null : parseFloat(target.value);
+
+  if (dimension === 'width') {
+    if (!videoConfig[displayId]) videoConfig[displayId] = {};
+    videoConfig[displayId].physicalWidth = value;
+  } else if (dimension === 'height') {
+    if (!videoConfig[displayId]) videoConfig[displayId] = {};
+    videoConfig[displayId].physicalHeight = value;
+  }
+
+  renderScreensOnCanvas(); // Redraw canvas on size change
+  console.log('Updated config:', videoConfig);
 });
 
 const loadButton = document.getElementById('load-profile');
@@ -116,19 +138,15 @@ function updateUIFromConfig(loadedConfig) {
 
   document.querySelectorAll('.display-card').forEach(card => {
     const displayId = card.querySelector('[data-id]').dataset.id;
-    const pathElement = card.querySelector('.video-path');
-    pathElement.textContent = (videoConfig[displayId] && videoConfig[displayId].videoPath)
-      ? videoConfig[displayId].videoPath
-      : 'No video selected';
+    const config = videoConfig[displayId] || {};
+
+    card.querySelector('.video-path').textContent = config.videoPath || 'No video selected';
+    card.querySelector('[data-dimension="width"]').value = config.physicalWidth || '';
+    card.querySelector('[data-dimension="height"]').value = config.physicalHeight || '';
   });
 
-  document.querySelectorAll('.canvas-screen').forEach(screenDiv => {
-    const displayId = screenDiv.dataset.id;
-    if (videoConfig[displayId] && videoConfig[displayId].x !== undefined) {
-      screenDiv.style.left = `${videoConfig[displayId].x}px`;
-      screenDiv.style.top = `${videoConfig[displayId].y}px`;
-    }
-  });
+  // Re-render the canvas with the new sizes and positions
+  renderScreensOnCanvas();
 }
 
 loadButton.addEventListener('click', async () => {
