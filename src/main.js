@@ -1,9 +1,24 @@
 // Main process
-const { app, BrowserWindow, screen, ipcMain } = require('electron');
+const { app, BrowserWindow, screen, ipcMain, dialog } = require('electron');
 const path = require('path');
+
+let playerWindows = [];
 
 function handleGetDisplays() {
   return screen.getAllDisplays();
+}
+
+async function handleFileOpen() {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [
+      { name: 'Videos', extensions: ['mp4', 'mov', 'webm', 'mkv'] }
+    ]
+  });
+  if (canceled || filePaths.length === 0) {
+    return null;
+  }
+  return filePaths[0];
 }
 
 async function handleIdentifyDisplay(event, displayId) {
@@ -44,6 +59,50 @@ async function handleIdentifyDisplay(event, displayId) {
   return true;
 }
 
+async function handleStartPlayback(event, config) {
+  const displays = screen.getAllDisplays();
+
+  // Close any existing player windows before starting new ones
+  playerWindows.forEach(win => win.close());
+  playerWindows = [];
+
+  for (const displayId in config) {
+    const displayConfig = config[displayId];
+    const display = displays.find(d => d.id == displayId);
+
+    if (!display) {
+      console.warn(`Could not find display with id ${displayId} for playback.`);
+      continue;
+    }
+
+    const playerWindow = new BrowserWindow({
+      x: display.bounds.x,
+      y: display.bounds.y,
+      fullscreen: true,
+      frame: false,
+      autoHideMenuBar: true,
+      skipTaskbar: true,
+      webPreferences: {
+        // In a future step, a specific preload script for the player might be needed
+        // for custom controls, but for now, we can play video without it.
+        nodeIntegration: true,
+        contextIsolation: false
+      }
+    });
+
+    const playerFile = path.join(__dirname, 'player.html');
+    playerWindow.loadFile(playerFile, {
+      query: { videoPath: encodeURIComponent(displayConfig.videoPath) }
+    });
+
+    playerWindow.on('closed', () => {
+      playerWindows = playerWindows.filter(win => !win.isDestroyed() && win !== playerWindow);
+    });
+
+    playerWindows.push(playerWindow);
+  }
+}
+
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
     width: 800,
@@ -59,6 +118,8 @@ const createWindow = () => {
 app.whenReady().then(() => {
   ipcMain.handle('displays:get', handleGetDisplays);
   ipcMain.handle('display:identify', handleIdentifyDisplay);
+  ipcMain.handle('dialog:openFile', handleFileOpen);
+  ipcMain.handle('playback:start', handleStartPlayback);
   createWindow();
 
   app.on('activate', () => {

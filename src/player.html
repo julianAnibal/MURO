@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>MultiVideo Player</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain; /* Default to contain, will be configurable later */
+    }
+  </style>
+</head>
+<body>
+  <video id="video-player" autoplay loop muted></video>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const encodedVideoPath = urlParams.get('videoPath');
+    if (encodedVideoPath) {
+      const videoPath = decodeURIComponent(encodedVideoPath);
+      const videoPlayer = document.getElementById('video-player');
+      // For local files, Electron requires the 'file://' protocol prefix.
+      videoPlayer.src = 'file://' + videoPath;
+      videoPlayer.play().catch(e => console.error('Video playback failed:', e));
+    }
+  </script>
+</body>
+</html>
