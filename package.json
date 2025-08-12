@@ -1,0 +1,25 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "A desktop application for simultaneous playback of multiple videos across multiple displays.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/julianAnibal/MURO.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/julianAnibal/MURO/issues"
+  },
+  "homepage": "https://github.com/julianAnibal/MURO#readme",
+  "devDependencies": {
+    "electron": "^37.2.6"
+  }
+}

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Identifying Display</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.5);
+      -webkit-font-smoothing: antialiased;
+    }
+    .number {
+      font-family: system-ui, sans-serif;
+      font-size: 120px;
+      font-weight: 800;
+      color: #FFFFFF;
+      text-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+    }
+  </style>
+</head>
+<body>
+  <div id="display-number" class="number"></div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const number = urlParams.get('number');
+    document.getElementById('display-number').textContent = number || '?';
+  </script>
+</body>
+</html>
