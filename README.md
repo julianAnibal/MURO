@@ -1,6 +1,6 @@
-# MultiVideo
+# MURO
 
-MultiVideo is a desktop application designed for simultaneous playback of multiple videos across multiple displays. It allows users to map video files to specific screens and control the playback, with advanced features for creating synchronized video walls.
+MURO is a desktop application designed for simultaneous playback of multiple videos across multiple displays. It allows users to map video files to specific screens and control the playback, with advanced features for creating synchronized video walls.
 
 This project is built with [Electron](https://www.electronjs.org/).
 
