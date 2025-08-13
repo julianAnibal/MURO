@@ -5,6 +5,8 @@ const fs = require('fs');
 
 let playerWindows = [];
 
+const iconPath = path.join(__dirname, '../build/icon.png');
+
 function handleGetDisplays() {
   return screen.getAllDisplays();
 }
@@ -68,6 +70,8 @@ async function handleStartPlayback(event, config) {
   playerWindows = [];
 
   for (const displayId in config) {
+    if (displayId === 'masterVideoPath') continue;
+    if (displayId === 'masterVideoScale') continue;
     const displayConfig = config[displayId];
     const display = displays.find(d => d.id == displayId);
 
@@ -94,6 +98,12 @@ async function handleStartPlayback(event, config) {
     const playerFile = path.join(__dirname, 'player.html');
     playerWindow.loadFile(playerFile, {
       query: { videoPath: encodeURIComponent(displayConfig.videoPath) }
+    });
+
+    playerWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'Escape' && input.type === 'keyDown') {
+        playerWindow.close();
+      }
     });
 
     playerWindow.on('closed', () => {
@@ -156,6 +166,7 @@ const createWindow = () => {
   const mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
@@ -165,6 +176,9 @@ const createWindow = () => {
 };
 
 app.whenReady().then(() => {
+  if (process.platform === 'darwin') {
+    app.dock.setIcon(iconPath);
+  }
   ipcMain.handle('displays:get', handleGetDisplays);
   ipcMain.handle('display:identify', handleIdentifyDisplay);
   ipcMain.handle('dialog:openFile', handleFileOpen);

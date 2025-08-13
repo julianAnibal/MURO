@@ -3,12 +3,26 @@ const detectButton = document.getElementById('detect-displays');
 const displayList = document.getElementById('display-list');
 const canvasContainer = document.getElementById('canvas-container');
 
-let videoConfig = {};
+let videoConfig = { masterVideoPath: null, masterVideoScale: 1 };
 let currentDisplays = [];
 const CM_TO_PX_SCALE = 5; // 1cm = 5px on the canvas
 
 function renderScreensOnCanvas() {
   canvasContainer.innerHTML = ''; // Clear canvas
+
+  // Add background canvas if there's a video
+  if (masterVideoElement) {
+      const bgCanvas = document.createElement('canvas');
+      bgCanvas.id = 'background-preview-canvas';
+      bgCanvas.style.position = 'absolute';
+      bgCanvas.style.top = '0';
+      bgCanvas.style.left = '0';
+      bgCanvas.style.width = '100%';
+      bgCanvas.style.height = '100%';
+      bgCanvas.style.zIndex = '-1';
+      canvasContainer.appendChild(bgCanvas);
+  }
+
   if (currentDisplays.length === 0) return;
 
   currentDisplays.forEach((display, index) => {
@@ -19,27 +33,40 @@ function renderScreensOnCanvas() {
     const config = videoConfig[display.id] || {};
     const hasPhysicalSize = config.physicalWidth > 0 && config.physicalHeight > 0;
 
-    // Set size based on physical dimensions, or a default if not available
+    let screenWidth, screenHeight;
     if (hasPhysicalSize) {
-      screenDiv.style.width = `${config.physicalWidth * CM_TO_PX_SCALE}px`;
-      screenDiv.style.height = `${config.physicalHeight * CM_TO_PX_SCALE}px`;
+      screenWidth = config.physicalWidth * CM_TO_PX_SCALE;
+      screenHeight = config.physicalHeight * CM_TO_PX_SCALE;
     } else {
-      screenDiv.style.width = '150px';
-      screenDiv.style.height = '150px';
+      screenWidth = 150;
+      screenHeight = 150;
       screenDiv.classList.add('is-placeholder');
     }
-
-    // Set position from config
+    
+    screenDiv.style.width = `${screenWidth}px`;
+    screenDiv.style.height = `${screenHeight}px`;
     screenDiv.style.left = `${config.x || 0}px`;
     screenDiv.style.top = `${config.y || 0}px`;
 
-    screenDiv.innerHTML = `<span>${index + 1}</span>`;
+    // Add canvas for preview
+    const previewCanvas = document.createElement('canvas');
+    previewCanvas.className = 'screen-preview-canvas';
+    previewCanvas.width = screenWidth;
+    previewCanvas.height = screenHeight;
+    screenDiv.appendChild(previewCanvas);
+    
+    const numberSpan = document.createElement('span');
+    numberSpan.textContent = index + 1;
+    screenDiv.appendChild(numberSpan);
+
     canvasContainer.appendChild(screenDiv);
   });
 }
 
 async function populateDisplayList() {
-  videoConfig = {}; // Reset config on refresh
+  const masterPath = videoConfig.masterVideoPath;
+  const masterScale = videoConfig.masterVideoScale || 1;
+  videoConfig = { masterVideoPath: masterPath, masterVideoScale: masterScale }; // Reset config on refresh
   console.log('Configuration reset.');
 
   currentDisplays = await window.electronAPI.getDisplays();
@@ -50,7 +77,7 @@ async function populateDisplayList() {
     videoConfig[display.id] = {
       x: 0, y: 0,
       physicalWidth: null, physicalHeight: null,
-      videoPath: null,
+      diagonal: null,
     };
 
     const listItem = document.createElement('li');
@@ -58,23 +85,15 @@ async function populateDisplayList() {
     listItem.innerHTML = `
       <div class="display-info">
         <strong>Display ${index + 1} (ID: ${display.id})</strong>
-        <div class="video-path-container">
-          <span class="video-path">No video selected</span>
-        </div>
         <div class="physical-size-inputs">
           <div class="input-group">
-            <label for="width-${display.id}">W (cm)</label>
-            <input type="number" id="width-${display.id}" class="input input-size" data-id="${display.id}" data-dimension="width" placeholder="--">
-          </div>
-          <div class="input-group">
-            <label for="height-${display.id}">H (cm)</label>
-            <input type="number" id="height-${display.id}" class="input input-size" data-id="${display.id}" data-dimension="height" placeholder="--">
+            <label for="diagonal-${display.id}">Diagonal (in)</label>
+            <input type="number" id="diagonal-${display.id}" class="input input-size" data-id="${display.id}" data-dimension="diagonal" placeholder="--">
           </div>
         </div>
         <span class="display-details">${display.size.width}x${display.size.height} @ ${display.scaleFactor * 100}%</span>
       </div>
       <div class="display-actions">
-        <button class="button" data-action="select-video" data-id="${display.id}">Select Video</button>
         <button class="button button-secondary" data-action="identify" data-id="${display.id}">Identify</button>
       </div>
     `;
@@ -97,15 +116,7 @@ displayList.addEventListener('click', async (event) => {
     window.electronAPI.identifyDisplay(displayId);
   }
 
-  if (action === 'select-video') {
-    const filePath = await window.electronAPI.openFile();
-    if (filePath) {
-      target.closest('.display-card').querySelector('.video-path').textContent = filePath;
-      if (!videoConfig[displayId]) videoConfig[displayId] = {};
-      videoConfig[displayId].videoPath = filePath;
-      console.log('Updated config:', videoConfig);
-    }
-  }
+  
 });
 
 displayList.addEventListener('input', (event) => {
@@ -114,14 +125,25 @@ displayList.addEventListener('input', (event) => {
   const target = event.target;
   const displayId = target.dataset.id;
   const dimension = target.dataset.dimension;
-  const value = target.value === '' ? null : parseFloat(target.value);
+  const diagonalInches = target.value === '' ? null : parseFloat(target.value);
 
-  if (dimension === 'width') {
+  if (dimension === 'diagonal') {
     if (!videoConfig[displayId]) videoConfig[displayId] = {};
-    videoConfig[displayId].physicalWidth = value;
-  } else if (dimension === 'height') {
-    if (!videoConfig[displayId]) videoConfig[displayId] = {};
-    videoConfig[displayId].physicalHeight = value;
+    videoConfig[displayId].diagonal = diagonalInches;
+
+    if (diagonalInches > 0) {
+      const display = currentDisplays.find(d => d.id == displayId);
+      const aspectRatio = display.size.width / display.size.height;
+      const heightInches = diagonalInches / Math.sqrt(aspectRatio * aspectRatio + 1);
+      const widthInches = aspectRatio * heightInches;
+      
+      const INCH_TO_CM = 2.54;
+      videoConfig[displayId].physicalWidth = widthInches * INCH_TO_CM;
+      videoConfig[displayId].physicalHeight = heightInches * INCH_TO_CM;
+    } else {
+      videoConfig[displayId].physicalWidth = null;
+      videoConfig[displayId].physicalHeight = null;
+    }
   }
 
   renderScreensOnCanvas(); // Redraw canvas on size change
@@ -140,9 +162,21 @@ function updateUIFromConfig(loadedConfig) {
     const displayId = card.querySelector('[data-id]').dataset.id;
     const config = videoConfig[displayId] || {};
 
-    card.querySelector('.video-path').textContent = config.videoPath || 'No video selected';
-    card.querySelector('[data-dimension="width"]').value = config.physicalWidth || '';
-    card.querySelector('[data-dimension="height"]').value = config.physicalHeight || '';
+    
+    
+    // Recalculate diagonal for display, or use stored value.
+    let diagonal = config.diagonal;
+    if (!diagonal && config.physicalWidth && config.physicalHeight) {
+        const CM_TO_INCH = 1 / 2.54;
+        const widthInches = config.physicalWidth * CM_TO_INCH;
+        const heightInches = config.physicalHeight * CM_TO_INCH;
+        diagonal = Math.sqrt(widthInches * widthInches + heightInches * heightInches);
+    }
+
+    const diagonalInput = card.querySelector('[data-dimension="diagonal"]');
+    if (diagonalInput) {
+        diagonalInput.value = diagonal ? diagonal.toFixed(1) : '';
+    }
   });
 
   // Re-render the canvas with the new sizes and positions
@@ -154,6 +188,9 @@ loadButton.addEventListener('click', async () => {
   console.log('Profile load result:', result);
   if (result.success) {
     updateUIFromConfig(result.data);
+    if (videoConfig.masterVideoPath) {
+      setupCanvasVideo();
+    }
   }
 });
 
@@ -170,6 +207,120 @@ startButton.addEventListener('click', () => {
   } else {
     console.warn('No videos configured for playback.');
   }
+});
+
+const selectCanvasVideoButton = document.getElementById('select-canvas-video');
+
+let masterVideoElement = null;
+let animationFrameId = null;
+
+function setupCanvasVideo() {
+  if (!videoConfig.masterVideoPath) {
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+    if (masterVideoElement) {
+      masterVideoElement.remove();
+      masterVideoElement = null;
+    }
+    // Re-render to clear the preview canvases
+    renderScreensOnCanvas();
+    return;
+  }
+
+  if (!masterVideoElement) {
+    masterVideoElement = document.createElement('video');
+    masterVideoElement.style.display = 'none'; // It's a hidden source
+    masterVideoElement.autoplay = true;
+    masterVideoElement.loop = true;
+    masterVideoElement.muted = true;
+    document.body.appendChild(masterVideoElement);
+
+    masterVideoElement.addEventListener('play', () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(updatePreviewFrames);
+    });
+  }
+
+  masterVideoElement.src = 'file://' + videoConfig.masterVideoPath;
+}
+
+function updatePreviewFrames() {
+  if (!masterVideoElement || masterVideoElement.paused || masterVideoElement.ended || masterVideoElement.videoWidth === 0) {
+    animationFrameId = null;
+    return; // Stop the loop if video isn't playing or metadata isn't loaded
+  }
+
+  const containerWidth = canvasContainer.offsetWidth;
+  const containerHeight = canvasContainer.offsetHeight;
+  const videoWidth = masterVideoElement.videoWidth;
+  const videoHeight = masterVideoElement.videoHeight;
+  const masterVideoScale = videoConfig.masterVideoScale || 1; // Get scale from config
+
+  // Calculate scaled video dimensions
+  const scaledVideoWidth = containerWidth * masterVideoScale;
+  const scaledVideoHeight = containerHeight * masterVideoScale;
+
+  // Calculate offset to center the scaled video
+  const offsetX = (containerWidth - scaledVideoWidth) / 2;
+  const offsetY = (containerHeight - scaledVideoHeight) / 2;
+
+  // Draw to background canvas
+  const bgCanvas = document.getElementById('background-preview-canvas');
+  if (bgCanvas) {
+      bgCanvas.width = containerWidth;
+      bgCanvas.height = containerHeight;
+      const bgCtx = bgCanvas.getContext('2d');
+      bgCtx.clearRect(0, 0, containerWidth, containerHeight); // Clear before drawing
+      bgCtx.drawImage(masterVideoElement, offsetX, offsetY, scaledVideoWidth, scaledVideoHeight);
+  }
+
+  // Calculate scale factors from video's native resolution to its rendered size on canvas
+  const scaleX = videoWidth / scaledVideoWidth;
+  const scaleY = videoHeight / scaledVideoHeight;
+
+  document.querySelectorAll('.screen-preview-canvas').forEach(canvas => {
+    const screenDiv = canvas.parentElement;
+    const ctx = canvas.getContext('2d');
+
+    // Position of the screen div relative to the container
+    const sourceX = screenDiv.offsetLeft;
+    const sourceY = screenDiv.offsetTop;
+    
+    // We use the canvas dimensions as the size of the slice, as it matches the div
+    const sourceWidth = canvas.width;
+    const sourceHeight = canvas.height;
+
+    // Calculate the source rectangle in the video's native resolution, adjusted for offset
+    const sx = (sourceX - offsetX) * scaleX;
+    const sy = (sourceY - offsetY) * scaleY;
+    const sWidth = sourceWidth * scaleX;
+    const sHeight = sourceHeight * scaleY;
+
+    // Clear canvas and draw the slice from the video
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (sWidth > 0 && sHeight > 0) {
+        ctx.drawImage(masterVideoElement, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+    }
+  });
+
+  animationFrameId = requestAnimationFrame(updatePreviewFrames);
+}
+
+selectCanvasVideoButton.addEventListener('click', async () => {
+  const filePath = await window.electronAPI.openFile();
+  if (filePath) {
+    videoConfig.masterVideoPath = filePath;
+    setupCanvasVideo();
+  }
+});
+
+const videoScaleSlider = document.getElementById('video-scale-slider');
+
+videoScaleSlider.addEventListener('input', (event) => {
+  videoConfig.masterVideoScale = parseFloat(event.target.value);
+  // No need to call renderScreensOnCanvas here, updatePreviewFrames will handle it
 });
 
 // --- Drag and Drop Logic for Canvas Screens ---
